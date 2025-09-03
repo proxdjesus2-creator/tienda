@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Productos</title>
+<link rel="stylesheet" href="style.css">
+<script src="theme.js" defer></script>
+<style>
+  body {
+    font-family: "Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji", sans-serif;
+    background: var(--bg, #f0f0f0);
+    color: var(--text, #000);
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: linear-gradient(135deg,#4facfe,#00f2fe);
+    color: white;
+    font-size: 1.2em;
+    flex-wrap: wrap;
+  }
+
+  header button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2em;
+    margin-left: 10px;
+  }
+
+  .container {
+    padding: 20px;
+    max-width: 600px;
+    margin: auto;
+  }
+
+  h2 { margin-bottom:10px; }
+
+  .search-box, .input-box {
+    width: 100%;
+    padding: 8px;
+    margin: 5px 0;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+  }
+
+  .btn {
+    background: linear-gradient(135deg,#4facfe,#00f2fe);
+    color:white;
+    border:none;
+    border-radius:8px;
+    padding:8px 12px;
+    cursor:pointer;
+    font-weight:600;
+    margin-top:5px;
+    transition:0.25s;
+  }
+
+  .btn:hover { transform:scale(1.05); }
+
+  .card {
+    background: linear-gradient(135deg,#ff8177,#ffcc70);
+    color: white;
+    border-radius:12px;
+    padding:12px;
+    margin-bottom:10px;
+    box-shadow:0 4px 10px rgba(0,0,0,0.15);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+
+  .btn-small {
+    background: linear-gradient(135deg,#ffcc70,#ff8177);
+    border:none;
+    border-radius:6px;
+    padding:4px 8px;
+    margin-left:5px;
+    cursor:pointer;
+    font-weight:600;
+    color:white;
+    transition:0.25s;
+  }
+
+  .btn-small:hover { transform:scale(1.05); }
+</style>
+</head>
+<body>
+
+<header>
+  &#x1F4B0; Productos
+  <button onclick="toggleTheme()">&#x1F319;/&#x2600;</button>
+</header>
+
+<div class="container">
+<h2>Agregar Producto</h2>
+<input id="nombreProducto" class="input-box" placeholder="Nombre del producto">
+<input id="precioProducto" type="number" class="input-box" placeholder="Precio">
+<button class="btn" onclick="agregarProducto()">&#x1F4E6; Agregar</button>
+
+<h2>Lista de Productos</h2>
+<div id="listaProductos"></div>
+</div>
+
+<script>
+// ======== Helpers ========
+function obtenerProductos(){ return JSON.parse(localStorage.getItem("productos"))||[]; }
+function guardarProductos(prods){ localStorage.setItem("productos", JSON.stringify(prods)); }
+
+// ======== Funciones ========
+function agregarProducto(){
+  let nombre = document.getElementById("nombreProducto").value.trim();
+  let precio = parseFloat(document.getElementById("precioProducto").value);
+  if(!nombre || isNaN(precio) || precio <= 0){ alert("Ingresa nombre y precio v‡lido."); return; }
+  let productos = obtenerProductos();
+  productos.push({nombre, precio});
+  guardarProductos(productos);
+  document.getElementById("nombreProducto").value = "";
+  document.getElementById("precioProducto").value = "";
+  mostrarProductos();
+}
+
+function mostrarProductos(){
+  let lista = document.getElementById("listaProductos");
+  let productos = obtenerProductos();
+  lista.innerHTML = "";
+  productos.forEach((p,i)=>{
+    let div = document.createElement("div");
+    div.className="card";
+    div.innerHTML = `
+      <span>&#x1F4E6; ${p.nombre} - Q${p.precio}</span>
+      <span>
+        <button class="btn-small" onclick="editarProducto(${i})">&#x270F;&#xFE0F;</button>
+        <button class="btn-small" onclick="eliminarProducto(${i})">&#x274C;</button>
+      </span>
+    `;
+    lista.appendChild(div);
+  });
+}
+
+function editarProducto(i){
+  let productos = obtenerProductos();
+  let nuevoNombre = prompt("Nuevo nombre:", productos[i].nombre);
+  let nuevoPrecio = parseFloat(prompt("Nuevo precio:", productos[i].precio));
+  if(nuevoNombre && !isNaN(nuevoPrecio) && nuevoPrecio>0){
+    productos[i].nombre = nuevoNombre;
+    productos[i].precio = nuevoPrecio;
+    guardarProductos(productos);
+    mostrarProductos();
+  }
+}
+
+function eliminarProducto(i){
+  if(confirm("?Eliminar este producto?")){
+    let productos = obtenerProductos();
+    productos.splice(i,1);
+    guardarProductos(productos);
+    mostrarProductos();
+  }
+}
+
+// ======== Inicializar ========
+document.addEventListener("DOMContentLoaded", mostrarProductos);
+</script>
+
+<nav class="navbar">
+  <a href="index.html">&#x1F3E0; Inicio</a>
+  <a href="clientes.html">&#x1F465; Clientes</a>
+  <a href="productos.html">&#x1F4E6; Productos</a>
+  <a href="pedidos.html">&#x1F4DD; Pedidos</a>
+  <a href="cuentas.html">&#x1F4B0; Cuentas</a>
+  <a href="historial.html">&#x1F4DC; Historial</a>
+</nav>
+
+</body>
+</html>

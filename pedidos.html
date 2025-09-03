@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pedidos</title>
+<link rel="stylesheet" href="style.css">
+<script src="theme.js" defer></script>
+<style>
+  .search-box { width:100%; padding:8px; margin:5px 0; border-radius:8px; border:1px solid #ccc; }
+  .dropdown { max-height:150px; overflow-y:auto; border:1px solid #ddd; border-radius:8px; background:var(--bg); display:none; position:absolute; width:90%; z-index:10; }
+  .dropdown div { padding:8px; cursor:pointer; }
+  .dropdown div:hover { background:var(--hover); }
+  .relative { position:relative; margin-bottom:20px; }
+  .card { background:linear-gradient(135deg,#4facfe,#00f2fe); color:white; border-radius:12px; padding:15px; margin-bottom:15px; box-shadow:0 4px 10px rgba(0,0,0,0.15);}
+  .fecha-btn { display:block; width:100%; padding:8px 12px; margin:5px 0; border:none; border-radius:8px; background:linear-gradient(135deg,#ffcc70,#ff8177); color:white; font-weight:600; cursor:pointer; text-align:left; transition:0.25s;}
+  .fecha-btn:hover { transform:scale(1.02); }
+  .pedido-detalle { padding-left:15px; display:none; margin-bottom:5px; }
+  .btn-small { background:linear-gradient(135deg,#ff8177,#ffcc70); border:none; border-radius:6px; padding:4px 8px; margin-left:5px; cursor:pointer; font-weight:600; color:white; transition:0.25s; }
+  .btn-small:hover { transform:scale(1.05); }
+</style>
+</head>
+<body>
+<header>
+  📝 Pedidos
+  <button class="btn-theme" onclick="toggleTheme()">🌙</button>
+</header>
+
+<main style="padding:20px;">
+<h2>Nuevo Pedido</h2>
+
+<div class="relative">
+  <label>Cliente:</label><br>
+  <input id="buscarCliente" type="text" class="search-box" placeholder="Buscar cliente...">
+  <div id="listaClientes" class="dropdown"></div>
+</div>
+
+<div class="relative">
+  <label>Producto:</label><br>
+  <input id="buscarProducto" type="text" class="search-box" placeholder="Buscar producto...">
+  <div id="listaProductos" class="dropdown"></div>
+</div>
+
+<label>Cantidad:</label><br>
+<input id="cantidadPedido" type="number" placeholder="Cantidad"><br><br>
+
+<button onclick="agregarPedido()">Agregar al Pedido</button>
+
+<h2>Pedidos</h2>
+<div id="listaPedidos"></div>
+</main>
+
+<nav class="navbar">
+  <a href="index.html">🏠 Inicio</a>
+  <a href="clientes.html">👥 Clientes</a>
+  <a href="productos.html">📦 Productos</a>
+  <a href="pedidos.html">📝 Pedidos</a>
+  <a href="cuentas.html">💰 Cuentas</a>
+  <a href="historial.html">📜 Historial</a>
+</nav>
+
+<script>
+// ======== Helpers ========
+function obtenerClientes(){ return JSON.parse(localStorage.getItem("clientes"))||[]; }
+function obtenerProductos(){ return JSON.parse(localStorage.getItem("productos"))||[]; }
+function obtenerPedidos(){ return JSON.parse(localStorage.getItem("pedidos"))||[]; }
+
+// ======== Variables ========
+let clienteSeleccionado=null, productoSeleccionado=null;
+
+  
+  
+// ======== Búsqueda Dinámica ========
+function buscarEnLista(input, lista, datos, tipo){
+  let texto=input.value.toLowerCase();
+  lista.innerHTML="";
+  if(texto===""){ lista.style.display="none"; return; }
+
+  let filtrados=datos.filter(d=>(tipo==="cliente"?d:d.nombre).toLowerCase().includes(texto));
+  filtrados.forEach(d=>{
+    let nombre=tipo==="cliente"?d:d.nombre+" - Q"+d.precio;
+    let div=document.createElement("div");
+    div.textContent=nombre;
+    div.onclick=function(){ seleccionar(tipo,d); }
+    lista.appendChild(div);
+  });
+  lista.style.display=filtrados.length>0?"block":"none";
+}
+
+function seleccionar(tipo, dato){
+  if(tipo==="cliente"){
+    clienteSeleccionado=dato;
+    document.getElementById("buscarCliente").value=dato;
+    document.getElementById("listaClientes").style.display="none";
+    mostrarPedidosFiltrados(dato);
+  }else{
+    productoSeleccionado=dato;
+    document.getElementById("buscarProducto").value=dato.nombre+" - Q"+dato.precio;
+    document.getElementById("listaProductos").style.display="none";
+  }
+}
+
+// ======== Pedidos ========
+function agregarPedido(){
+  let cantidad=parseInt(document.getElementById("cantidadPedido").value);
+  if(!clienteSeleccionado||!productoSeleccionado){ alert("Debes seleccionar cliente y producto."); return; }
+  if(cantidad>0){
+    let pedidos=obtenerPedidos();
+    let total=cantidad*productoSeleccionado.precio;
+    let fecha=new Date().toLocaleDateString();
+    pedidos.push({cliente:clienteSeleccionado, producto:productoSeleccionado.nombre, cantidad, total, fecha});
+    localStorage.setItem("pedidos",JSON.stringify(pedidos));
+    document.getElementById("cantidadPedido").value="";
+    document.getElementById("buscarProducto").value="";
+    productoSeleccionado=null;
+    mostrarPedidosFiltrados(clienteSeleccionado);
+  }
+}
+
+function eliminarPedido(indice){
+  let pedidos=obtenerPedidos();
+  if(confirm(`¿Eliminar este pedido?`)){
+    pedidos.splice(indice,1);
+    localStorage.setItem("pedidos",JSON.stringify(pedidos));
+    mostrarPedidosFiltrados(clienteSeleccionado);
+  }
+}
+
+function editarPedido(indice){
+  let pedidos=obtenerPedidos();
+  let nuevo=parseInt(prompt("Nuevo total:",pedidos[indice].total));
+  if(!isNaN(nuevo) && nuevo>0){
+    pedidos[indice].total=nuevo;
+    localStorage.setItem("pedidos",JSON.stringify(pedidos));
+    mostrarPedidosFiltrados(clienteSeleccionado);
+  }
+}
+
+// ======== Mostrar Pedidos por Cliente y Fecha ========
+function mostrarPedidosFiltrados(cliente){
+  let pedidos=obtenerPedidos().filter(p=>p.cliente===cliente);
+  let lista=document.getElementById("listaPedidos");
+  lista.innerHTML="";
+  if(pedidos.length===0){ lista.innerHTML="<p>No hay pedidos para este cliente.</p>"; return; }
+
+  let agrupados={};
+  pedidos.forEach((p,i)=>{
+    if(!agrupados[p.fecha]) agrupados[p.fecha]=[];
+    agrupados[p.fecha].push({...p, indice:i});
+  });
+
+  let card=document.createElement("div");
+  card.className="card";
+  card.innerHTML=`<b>${cliente}</b><br>`;
+
+  Object.keys(agrupados).forEach(fecha=>{
+    let html=`<button class="fecha-btn" onclick="togglePedidos('${cliente}-${fecha}')">${fecha}</button>
+      <div id="pedidos-${cliente}-${fecha}" class="pedido-detalle">`;
+    agrupados[fecha].forEach(p=>{
+      html+=`${p.producto} (x${p.cantidad}) - Q${p.total} 
+        <button class="btn-small" onclick="editarPedido(${p.indice})">✏️</button>
+        <button class="btn-small" onclick="eliminarPedido(${p.indice})">❌</button><br>`;
+    });
+    html+="</div>";
+    card.innerHTML+=html;
+  });
+
+  lista.appendChild(card);
+}
+
+function togglePedidos(id){
+  let div=document.getElementById("pedidos-"+id);
+  if(div) div.style.display=(div.style.display==="none"?"block":"none");
+}
+
+// ======== Inicializar ========
+document.addEventListener("DOMContentLoaded",()=>{
+  document.getElementById("buscarCliente").addEventListener("input",()=>{
+    buscarEnLista(document.getElementById("buscarCliente"), document.getElementById("listaClientes"), obtenerClientes(), "cliente");
+  });
+  document.getElementById("buscarProducto").addEventListener("input",()=>{
+    buscarEnLista(document.getElementById("buscarProducto"), document.getElementById("listaProductos"), obtenerProductos(), "producto");
+  });
+});
+</script>
+</body>
+</html>

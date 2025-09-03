@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Historial</title>
+<link rel="stylesheet" href="style.css">
+<script src="theme.js" defer></script>
+<style>
+  .search-box { width:100%; padding:8px; margin:5px 0; border-radius:8px; border:1px solid #ccc; }
+  .dropdown { max-height:150px; overflow-y:auto; border:1px solid #ddd; border-radius:8px; background:var(--bg); display:none; position:absolute; width:90%; z-index:10; }
+  .dropdown div { padding:8px; cursor:pointer; }
+  .dropdown div:hover { background:var(--hover); }
+  .relative { position:relative; margin-bottom:20px; }
+  .card { background:linear-gradient(135deg,#4facfe,#00f2fe); color:white; border-radius:12px; padding:15px; margin-bottom:15px; box-shadow:0 4px 10px rgba(0,0,0,0.15);}
+  .fecha-btn { display:block; width:100%; padding:8px 12px; margin:5px 0; border:none; border-radius:8px; background:linear-gradient(135deg,#ffcc70,#ff8177); color:white; font-weight:600; cursor:pointer; text-align:left; transition:0.25s;}
+  .fecha-btn:hover { transform:scale(1.02); }
+  .detalle { padding-left:15px; display:none; margin-bottom:5px; }
+  .btn-small { background:linear-gradient(135deg,#ff8177,#ffcc70); border:none; border-radius:6px; padding:4px 8px; margin-left:5px; cursor:pointer; font-weight:600; color:white; transition:0.25s; }
+  .btn-small:hover { transform:scale(1.05); }
+</style>
+</head>
+<body>
+<header>
+  📜 Historial
+  <button onclick="toggleTheme()">🌙/☀️</button>
+</header>
+
+<main style="padding:20px;">
+<h2>Buscar Cliente</h2>
+<div class="relative">
+  <input id="buscarCliente" class="search-box" placeholder="Nombre del cliente">
+  <div id="listaClientes" class="dropdown"></div>
+</div>
+
+<h3>Total a Pagar: <span id="totalDeuda">Q0</span></h3>
+
+<h2>Historial de Pedidos y Abonos</h2>
+<div id="historial"></div>
+</main>
+
+<nav class="navbar">
+  <a href="index.html">🏠 Inicio</a>
+  <a href="clientes.html">👥 Clientes</a>
+  <a href="productos.html">📦 Productos</a>
+  <a href="pedidos.html">📝 Pedidos</a>
+  <a href="cuentas.html">💰 Cuentas</a>
+  <a href="historial.html">📜 Historial</a>
+</nav>
+
+<script>
+// ======== Helpers ========
+function obtenerClientes(){ return JSON.parse(localStorage.getItem("clientes"))||[]; }
+function obtenerPedidos(){ return JSON.parse(localStorage.getItem("pedidos"))||[]; }
+function obtenerAbonos(){ return JSON.parse(localStorage.getItem("abonos"))||[]; }
+
+// ======== Variables ========
+let clienteSeleccionado = null;
+
+// ======== Buscar Clientes ========
+function buscarClientes(){
+  let texto = document.getElementById("buscarCliente").value.toLowerCase();
+  let lista = document.getElementById("listaClientes");
+  lista.innerHTML = "";
+  if(texto===""){ lista.style.display="none"; return; }
+
+  let filtrados = obtenerClientes().filter(c => c.toLowerCase().includes(texto));
+  filtrados.forEach(c=>{
+    let div = document.createElement("div");
+    div.textContent = c;
+    div.onclick = ()=>seleccionarCliente(c);
+    lista.appendChild(div);
+  });
+  lista.style.display=filtrados.length>0?"block":"none";
+}
+
+function seleccionarCliente(nombre){
+  clienteSeleccionado = nombre;
+  document.getElementById("buscarCliente").value = nombre;
+  document.getElementById("listaClientes").style.display = "none";
+  mostrarHistorial();
+  actualizarTotalDeuda();
+}
+
+// ======== Mostrar Historial ========
+function mostrarHistorial(){
+  let historialDiv = document.getElementById("historial");
+  historialDiv.innerHTML="";
+  if(!clienteSeleccionado){ historialDiv.innerHTML="<p>Selecciona un cliente para ver su historial.</p>"; return; }
+
+  let pedidos = obtenerPedidos().filter(p=>p.cliente===clienteSeleccionado);
+  let abonos = obtenerAbonos().filter(a=>a.cliente===clienteSeleccionado);
+
+  // Agrupar por fecha
+  let agrupados = {};
+  pedidos.forEach(p=>{
+    if(!agrupados[p.fecha]) agrupados[p.fecha]={pedidos:[],abonos:[]};
+    agrupados[p.fecha].pedidos.push(p);
+  });
+  abonos.forEach(a=>{
+    if(!agrupados[a.fecha]) agrupados[a.fecha]={pedidos:[],abonos:[]};
+    agrupados[a.fecha].abonos.push(a);
+  });
+
+  Object.keys(agrupados).sort().forEach(fecha=>{
+    let btn = document.createElement("button");
+    btn.className="fecha-btn";
+    btn.textContent=fecha;
+    btn.onclick=()=>{ 
+      let div = document.getElementById("detalle-"+fecha);
+      if(div) div.style.display = div.style.display==="none"?"block":"none";
+    };
+    historialDiv.appendChild(btn);
+
+    let detalle = document.createElement("div");
+    detalle.id = "detalle-"+fecha;
+    detalle.className="detalle";
+
+    agrupados[fecha].pedidos.forEach((p,i)=>{
+      detalle.innerHTML += `${p.producto} (x${p.cantidad}) - Q${p.total} 
+        <button class="btn-small" onclick="editarPedido('${p.cliente}','${p.fecha}',${i})">✏️</button>
+        <button class="btn-small" onclick="eliminarPedido('${p.cliente}','${p.fecha}',${i})">❌</button><br>`;
+    });
+
+    agrupados[fecha].abonos.forEach((a,i)=>{
+      detalle.innerHTML += `Abono Q${a.monto} 
+        <button class="btn-small" onclick="editarAbono(${i})">✏️</button>
+        <button class="btn-small" onclick="eliminarAbono(${i})">❌</button><br>`;
+    });
+
+    historialDiv.appendChild(detalle);
+  });
+}
+
+// ======== Total de Deuda ========
+function actualizarTotalDeuda(){
+  if(!clienteSeleccionado) return;
+  let pedidos = obtenerPedidos().filter(p=>p.cliente===clienteSeleccionado);
+  let abonos = obtenerAbonos().filter(a=>a.cliente===clienteSeleccionado);
+
+  let totalPedidos = pedidos.reduce((acc,p)=>acc+p.total,0);
+  let totalAbonos = abonos.reduce((acc,a)=>acc+a.monto,0);
+
+  let deuda = totalPedidos - totalAbonos;
+  document.getElementById("totalDeuda").textContent = "Q"+deuda;
+}
+
+// ======== Editar y Eliminar Abonos ========
+function editarAbono(i){
+  let abonos = obtenerAbonos();
+  let nuevo = parseFloat(prompt("Nuevo monto:", abonos[i].monto));
+  if(!isNaN(nuevo) && nuevo>0){
+    abonos[i].monto = nuevo;
+    localStorage.setItem("abonos", JSON.stringify(abonos));
+    mostrarHistorial();
+    actualizarTotalDeuda();
+  }
+}
+
+function eliminarAbono(i){
+  let abonos = obtenerAbonos();
+  if(confirm("¿Eliminar este abono?")){
+    abonos.splice(i,1);
+    localStorage.setItem("abonos", JSON.stringify(abonos));
+    mostrarHistorial();
+    actualizarTotalDeuda();
+  }
+}
+
+// ======== Editar y Eliminar Pedidos ========
+function editarPedido(cliente, fecha, indice){
+  let pedidos = obtenerPedidos();
+  let pedidosFiltrados = pedidos.filter(p => p.cliente === cliente && p.fecha === fecha);
+  let pedido = pedidosFiltrados[indice];
+  if(!pedido) return;
+
+  let nuevoTotal = parseFloat(prompt(`Nuevo total para ${pedido.producto}:`, pedido.total));
+  if(!isNaN(nuevoTotal) && nuevoTotal > 0){
+    let globalIndex = pedidos.findIndex(p => p === pedido);
+    pedidos[globalIndex].total = nuevoTotal;
+    localStorage.setItem("pedidos", JSON.stringify(pedidos));
+    mostrarHistorial();
+    actualizarTotalDeuda();
+  }
+}
+
+function eliminarPedido(cliente, fecha, indice){
+  let pedidos = obtenerPedidos();
+  let pedidosFiltrados = pedidos.filter(p => p.cliente === cliente && p.fecha === fecha);
+  if(confirm("¿Eliminar este pedido?")){
+    let globalIndex = pedidos.findIndex(p => p === pedidosFiltrados[indice]);
+    pedidos.splice(globalIndex,1);
+    localStorage.setItem("pedidos", JSON.stringify(pedidos));
+    mostrarHistorial();
+    actualizarTotalDeuda();
+  }
+}
+
+// ======== Inicializar ========
+document.addEventListener("DOMContentLoaded",()=>{
+  document.getElementById("buscarCliente").addEventListener("input",buscarClientes);
+  mostrarHistorial();
+  actualizarTotalDeuda();
+});
+</script>
+</body>
+</html>

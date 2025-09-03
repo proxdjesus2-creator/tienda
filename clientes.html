@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clientes</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="theme.js" defer></script>
+</head>
+<body>
+<header>
+  👥 Clientes
+  <button onclick="toggleTheme()">🌙/☀️</button>
+</header>
+
+<main style="padding:20px;">
+  <h2>Registrar Cliente</h2>
+  <input id="clienteInput" placeholder="Nombre del cliente">
+  <button onclick="agregarCliente()">Agregar</button>
+
+  <h2>Lista de Clientes</h2>
+  <div id="listaClientes"></div>
+</main>
+
+<nav class="nav">
+  <nav class="navbar">
+  <a href="index.html">🏠 Inicio</a>
+  <a href="clientes.html">👥 Clientes</a>
+  <a href="productos.html">📦 Productos</a>
+  <a href="pedidos.html">📝 Pedidos</a>
+  <a href="cuentas.html">💰 Cuentas</a>
+  <a href="historial.html">📜 Historial</a>
+</nav>
+
+</nav>
+
+<script>
+function obtenerClientes() {
+  return JSON.parse(localStorage.getItem("clientes")) || [];
+}
+
+function mostrarClientes() {
+  let clientes = obtenerClientes();
+  let lista = document.getElementById("listaClientes");
+  lista.innerHTML = "";
+  clientes.forEach((c, i) => {
+    lista.innerHTML += `
+      <div class="card">
+        ${c}
+        <button onclick="eliminarCliente(${i})">❌</button>
+      </div>`;
+  });
+}
+
+function agregarCliente() {
+  let input = document.getElementById("clienteInput");
+  if (input.value.trim() !== "") {
+    let clientes = obtenerClientes();
+    clientes.push(input.value.trim());
+    localStorage.setItem("clientes", JSON.stringify(clientes));
+    input.value = "";
+    mostrarClientes();
+  }
+}
+
+function eliminarCliente(i) {
+  let clientes = obtenerClientes();
+  if (confirm(`¿Seguro que quieres eliminar al cliente "${clientes[i]}"?`)) {
+    clientes.splice(i, 1);
+    localStorage.setItem("clientes", JSON.stringify(clientes));
+    mostrarClientes();
+  }
+}
+
+
+document.addEventListener("DOMContentLoaded", mostrarClientes);
+</script>
+</body>
+</html>

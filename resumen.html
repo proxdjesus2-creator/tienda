@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resumen por Fechas</title>
+<link rel="stylesheet" href="style.css">
+<script src="theme.js" defer></script>
+<style>
+body {
+  font-family: sans-serif;
+  background: var(--bg, #f9f9f9);
+  color: var(--text, #000);
+  margin:0; padding:0;
+}
+
+header {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:15px; background:#444; color:white; font-size:1.2em; flex-wrap:wrap;
+}
+
+header button { background:none; border:none; cursor:pointer; font-size:1.2em; }
+
+.container { max-width:700px; margin:auto; padding:20px; }
+
+h2 { margin-top:20px; margin-bottom:10px; }
+
+.fecha-btn {
+  display:block; width:100%; text-align:left; padding:8px 12px; margin:5px 0;
+  border:none; border-radius:6px; background:#ddd; cursor:pointer; font-weight:600;
+  transition:0.25s;
+}
+.fecha-btn:hover { background:#ccc; }
+
+.detalle { padding-left:15px; display:none; margin-bottom:10px; }
+
+.card {
+  background:#eee; padding:10px; border-radius:8px; margin-bottom:5px;
+  display:flex; justify-content:space-between; align-items:center;
+}
+
+.btn-small {
+  background:#392e2e; color:white; border:none; border-radius:5px; padding:4px 8px;
+  margin-left:5px; cursor:pointer; font-weight:600; transition:0.25s;
+}
+.btn-small:hover { background:#218ecb; }
+</style>
+</head>
+<body>
+
+<header>
+  <span>📋 Resumen por Fechas</span>
+  <button onclick="toggleTheme()">🌙/☀️</button>
+</header>
+
+<div class="container">
+
+<h2>Resumen</h2>
+<div id="resumen"></div>
+
+</div>
+
+<script>
+// ======== Helpers ========
+function obtenerPedidos(){ return JSON.parse(localStorage.getItem("pedidos"))||[]; }
+function obtenerAbonos(){ return JSON.parse(localStorage.getItem("abonos"))||[]; }
+
+// ======== Mostrar Resumen por Fechas ========
+function mostrarResumen(){
+  let pedidos = obtenerPedidos();
+  let abonos = obtenerAbonos();
+  let resumenDiv = document.getElementById("resumen");
+  resumenDiv.innerHTML="";
+
+  // Agrupar por fecha
+  let fechas = {};
+  pedidos.forEach(p=>{
+    if(!fechas[p.fecha]) fechas[p.fecha]={pedidos:[],abonos:[]};
+    fechas[p.fecha].pedidos.push(p);
+  });
+  abonos.forEach(a=>{
+    if(!fechas[a.fecha]) fechas[a.fecha]={pedidos:[],abonos:[]};
+    fechas[a.fecha].abonos.push(a);
+  });
+
+  // Mostrar cada fecha
+  Object.keys(fechas).sort().forEach(fecha=>{
+    let btn = document.createElement("button");
+    btn.className="fecha-btn";
+    btn.textContent=fecha;
+    btn.onclick=()=>{
+      let det = document.getElementById("detalle-"+fecha);
+      if(det) det.style.display = det.style.display==="none"?"block":"none";
+    };
+    resumenDiv.appendChild(btn);
+
+    let detalle = document.createElement("div");
+    detalle.id="detalle-"+fecha;
+    detalle.className="detalle";
+
+    // Pedidos por cliente
+    let clientes = {};
+    fechas[fecha].pedidos.forEach(p=>{
+      if(!clientes[p.cliente]) clientes[p.cliente]=[];
+      clientes[p.cliente].push(p);
+    });
+    Object.keys(clientes).forEach(cliente=>{
+      detalle.innerHTML += `<strong>${cliente}</strong><br>`;
+      clientes[cliente].forEach((p,i)=>{
+        detalle.innerHTML += `
+          <div class="card">
+            ${p.producto} (x${p.cantidad}) - Q${p.total}
+            <span>
+              <button class="btn-small" onclick="editarPedido('${fecha}','${cliente}',${i})">✏️</button>
+              <button class="btn-small" onclick="eliminarPedido('${fecha}','${cliente}',${i})">❌</button>
+            </span>
+          </div>
+        `;
+      });
+    });
+
+    // Abonos
+    fechas[fecha].abonos.forEach((a,i)=>{
+      detalle.innerHTML += `
+        <div class="card">
+          ${a.cliente} - Abono Q${a.monto}
+          <span>
+            <button class="btn-small" onclick="editarAbono('${fecha}',${i})">✏️</button>
+            <button class="btn-small" onclick="eliminarAbono('${fecha}',${i})">❌</button>
+          </span>
+        </div>
+      `;
+    });
+
+    resumenDiv.appendChild(detalle);
+  });
+}
+
+// ======== Editar y Eliminar ========
+function editarPedido(fecha,cliente,indice){
+  let pedidos = obtenerPedidos();
+  let pedidosDia = pedidos.filter(p=>p.fecha===fecha && p.cliente===cliente);
+  let pedido = pedidosDia[indice];
+  if(!pedido) return;
+  let nuevoTotal = parseFloat(prompt(`Nuevo total para ${pedido.producto}:`, pedido.total));
+  if(!isNaN(nuevoTotal) && nuevoTotal>0){
+    let globalIndex = pedidos.findIndex(p=>p===pedido);
+    pedidos[globalIndex].total = nuevoTotal;
+    localStorage.setItem("pedidos", JSON.stringify(pedidos));
+    mostrarResumen();
+  }
+}
+function eliminarPedido(fecha,cliente,indice){
+  if(confirm("Eliminar este pedido?")){
+    let pedidos = obtenerPedidos();
+    let pedidosDia = pedidos.filter(p=>p.fecha===fecha && p.cliente===cliente);
+    let pedido = pedidosDia[indice];
+    let globalIndex = pedidos.findIndex(p=>p===pedido);
+    pedidos.splice(globalIndex,1);
+    localStorage.setItem("pedidos", JSON.stringify(pedidos));
+    mostrarResumen();
+  }
+}
+
+function editarAbono(fecha,indice){
+  let abonos = obtenerAbonos();
+  let abonosDia = abonos.filter(a=>a.fecha===fecha);
+  let abono = abonosDia[indice];
+  let globalIndex = abonos.findIndex(a=>a===abono);
+  let nuevo = parseFloat(prompt("Nuevo monto:", abono.monto));
+  if(!isNaN(nuevo) && nuevo>0){
+    abonos[globalIndex].monto = nuevo;
+    localStorage.setItem("abonos", JSON.stringify(abonos));
+    mostrarResumen();
+  }
+}
+
+function eliminarAbono(fecha,indice){
+  if(confirm("Eliminar este abono?")){
+    let abonos = obtenerAbonos();
+    let abonosDia = abonos.filter(a=>a.fecha===fecha);
+    let abono = abonosDia[indice];
+    let globalIndex = abonos.findIndex(a=>a===abono);
+    abonos.splice(globalIndex,1);
+    localStorage.setItem("abonos", JSON.stringify(abonos));
+    mostrarResumen();
+  }
+}
+
+// ======== Inicializar ========
+document.addEventListener("DOMContentLoaded", mostrarResumen);
+</script>
+<nav class="navbar">
+  <a href="index.html">&#x1F3E0; Inicio</a>
+  <a href="clientes.html">&#x1F465; Clientes</a>
+  <a href="productos.html">&#x1F4E6; Productos</a>
+  <a href="pedidos.html">&#x1F4DD; Pedidos</a>
+  <a href="cuentas.html">&#x1F4B0; Cuentas</a>
+  <a href="historial.html">&#x1F4DC; Historial</a>
+</nav>
+
+</body>
+</html>

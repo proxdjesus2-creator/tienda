@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cuentas</title>
+<link rel="stylesheet" href="style.css">
+<script src="theme.js" defer></script>
+<style>
+  .search-box { width:100%; padding:8px; margin:5px 0; border-radius:8px; border:1px solid #ccc; }
+  .dropdown { max-height:150px; overflow-y:auto; border:1px solid #ddd; border-radius:8px; background:var(--bg); display:none; position:absolute; width:90%; z-index:10; }
+  .dropdown div { padding:8px; cursor:pointer; }
+  .dropdown div:hover { background:var(--hover); }
+  .relative { position:relative; margin-bottom:20px; }
+  .card { background:linear-gradient(135deg,#4facfe,#00f2fe); color:white; border-radius:12px; padding:15px; margin-bottom:15px; box-shadow:0 4px 10px rgba(0,0,0,0.15);}
+  .btn-small { background:linear-gradient(135deg,#ff8177,#ffcc70); border:none; border-radius:6px; padding:4px 8px; margin-left:5px; cursor:pointer; font-weight:600; color:white; transition:0.25s; }
+  .btn-small:hover { transform:scale(1.05); }
+</style>
+</head>
+<body>
+<header>
+  💰 Cuentas
+  <button onclick="toggleTheme()">🌙/☀️</button>
+</header>
+
+<main style="padding:20px;">
+<h2>Buscar Cliente</h2>
+<div class="relative">
+  <input id="buscarCliente" class="search-box" placeholder="Nombre del cliente">
+  <div id="listaClientes" class="dropdown"></div>
+</div>
+
+<h3>Total a Pagar: <span id="totalDeuda">Q0</span></h3>
+
+<h2>Registrar Abono</h2>
+<input id="montoAbono" type="number" placeholder="Monto">
+<button onclick="registrarAbono()">Registrar</button>
+
+<h2>Historial de Abonos</h2>
+<div id="historialAbonos"></div>
+</main>
+
+<nav class="navbar">
+  <a href="index.html">🏠 Inicio</a>
+  <a href="clientes.html">👥 Clientes</a>
+  <a href="productos.html">📦 Productos</a>
+  <a href="pedidos.html">📝 Pedidos</a>
+  <a href="cuentas.html">💰 Cuentas</a>
+  <a href="historial.html">📜 Historial</a>
+</nav>
+
+<script>
+// ======== Helpers ========
+function obtenerClientes(){ return JSON.parse(localStorage.getItem("clientes"))||[]; }
+function obtenerAbonos(){ return JSON.parse(localStorage.getItem("abonos"))||[]; }
+function obtenerPedidos(){ return JSON.parse(localStorage.getItem("pedidos"))||[]; }
+
+// ======== Variables ========
+let clienteSeleccionado = null;
+
+// ======== Búsqueda Clientes ========
+function buscarClientes(){
+  let texto = document.getElementById("buscarCliente").value.toLowerCase();
+  let lista = document.getElementById("listaClientes");
+  lista.innerHTML = "";
+  if(texto===""){ lista.style.display="none"; return; }
+
+  let filtrados = obtenerClientes().filter(c => c.toLowerCase().includes(texto));
+  filtrados.forEach(c => {
+    let div = document.createElement("div");
+    div.textContent = c;
+    div.onclick = () => seleccionarCliente(c);
+    lista.appendChild(div);
+  });
+  lista.style.display=filtrados.length>0?"block":"none";
+}
+
+function seleccionarCliente(nombre){
+  clienteSeleccionado = nombre;
+  document.getElementById("buscarCliente").value = nombre;
+  document.getElementById("listaClientes").style.display = "none";
+  mostrarAbonos();
+  actualizarTotalDeuda();
+}
+
+// ======== Registrar Abono ========
+function registrarAbono(){
+  if(!clienteSeleccionado){ alert("Selecciona un cliente."); return; }
+  let monto = parseFloat(document.getElementById("montoAbono").value);
+  if(isNaN(monto)||monto<=0){ alert("Ingresa un monto válido."); return; }
+
+  let abonos = obtenerAbonos();
+  let fecha = new Date().toLocaleDateString();
+  abonos.push({cliente:clienteSeleccionado, monto, fecha});
+  localStorage.setItem("abonos", JSON.stringify(abonos));
+
+  document.getElementById("montoAbono").value = "";
+  mostrarAbonos();
+  actualizarTotalDeuda();
+}
+
+// ======== Mostrar Abonos ========
+function mostrarAbonos(){
+  let historial = document.getElementById("historialAbonos");
+  historial.innerHTML = "";
+  if(!clienteSeleccionado){ historial.innerHTML="<p>Selecciona un cliente para ver su historial.</p>"; return; }
+
+  let abonos = obtenerAbonos().filter(a => a.cliente === clienteSeleccionado);
+  if(abonos.length===0){ historial.innerHTML="<p>No hay abonos para este cliente.</p>"; return; }
+
+  abonos.forEach((a,i)=>{
+    let div = document.createElement("div");
+    div.className = "card";
+    div.innerHTML = `${a.cliente} - Abono Q${a.monto} - ${a.fecha} 
+      <button class="btn-small" onclick="editarAbono(${i})">✏️</button>
+      <button class="btn-small" onclick="eliminarAbono(${i})">❌</button>`;
+    historial.appendChild(div);
+  });
+}
+
+// ======== Editar y Eliminar ========
+function editarAbono(i){
+  let abonos = obtenerAbonos();
+  let nuevo = parseFloat(prompt("Nuevo monto:", abonos[i].monto));
+  if(!isNaN(nuevo) && nuevo>0){
+    abonos[i].monto = nuevo;
+    localStorage.setItem("abonos", JSON.stringify(abonos));
+    mostrarAbonos();
+    actualizarTotalDeuda();
+  }
+}
+
+function eliminarAbono(i){
+  let abonos = obtenerAbonos();
+  if(confirm("¿Eliminar este abono?")){
+    abonos.splice(i,1);
+    localStorage.setItem("abonos", JSON.stringify(abonos));
+    mostrarAbonos();
+    actualizarTotalDeuda();
+  }
+}
+
+// ======== Total a Pagar ========
+function actualizarTotalDeuda(){
+  if(!clienteSeleccionado) return;
+  let pedidos = obtenerPedidos().filter(p => p.cliente === clienteSeleccionado);
+  let abonos = obtenerAbonos().filter(a => a.cliente === clienteSeleccionado);
+
+  let totalPedidos = pedidos.reduce((acc,p)=>acc+p.total,0);
+  let totalAbonos = abonos.reduce((acc,a)=>acc+a.monto,0);
+
+  let deuda = totalPedidos - totalAbonos;
+  document.getElementById("totalDeuda").textContent = "Q"+deuda;
+}
+
+// ======== Inicializar ========
+document.addEventListener("DOMContentLoaded",()=>{
+  document.getElementById("buscarCliente").addEventListener("input",buscarClientes);
+  mostrarAbonos();
+  actualizarTotalDeuda();
+});
+</script>
+</body>
+</html>
